@@ -1,49 +1,13 @@
 using UnityEngine;
 
-public struct NCCMove {
-    public Vector3 pos;
-    public Vector3 vel;
-    public Vector3 ext;
-    
-    public readonly Quaternion rot;
-    public readonly Collider self;
-    public readonly int mask;
-    public readonly int flags;
-    public readonly float dt;
-
-    public NCCMove(Vector3 pos, Vector3 vel, Vector3 scl, Quaternion rot, Collider self, int mask, int flags, float dt) {
-        this.pos = pos;
-        this.vel = vel;
-        this.ext = scl / 2F;
-        this.rot = rot;
-        this.mask = mask;
-        this.flags = flags;
-        this.self = self;
-        this.dt = dt;
-    }
-}
-
-public struct NCCGround {
-    public readonly bool           valid;
-    public readonly float       distance;
-    public readonly Vector3        point;
-    public readonly Vector3       normal;
-    public readonly Collider    collider;
-
-    public NCCGround(bool valid, Vector3 point, Vector3 normal, float distance, Collider collider) {
-        this.valid = valid;
-        this.point = point;
-        this.normal = normal;
-        this.distance = distance;
-        this.collider = collider;
-    }
-}
-
 public class NCC {
     public const int FLG_DOSNAP   = 0x1; // don't snap if not desireable
     public const int FLG_DOSTEP   = 0x2; // don't step if not desireable
     public const int FLG_DOGROUND = 0x4; // skip ground check if not needed
     public const int FLG_ALL = FLG_DOSNAP | FLG_DOSNAP | FLG_DOGROUND;
+
+    public const float DEF_STP_HEIGHT = 0.6F;
+    public const float DEF_STBL_ANGLE = 45F;
 
     private const float m_offs = 1e-2f / 2F;
 
@@ -54,8 +18,6 @@ public class NCC {
 
 // collide & slide
     private static void Slide(ref NCCMove m, NCCBuffer nb, NCCRelay re) {
-        Debug.Assert(!(nb == null || re == null));
-
         ClipHull hull = nb.Clips;
         hull.Clear();
 
@@ -92,11 +54,13 @@ public class NCC {
         var grnd = (m.flags & FLG_DOGROUND) != 0;
         var snap = (m.flags & FLG_DOSNAP)   != 0;
         var step = (m.flags & FLG_DOSTEP)   != 0;
-        Vector3 initv = m.vel;
 
 // ground trace
         if(grnd) {
             SnapTrace(ref m, hull, nb, ahits, snap);
+// clear out existing ground buffer for this frame
+        }else {
+            nb.SetGround(new NCCGround(false, Vector3.zero, Vector3.zero, 0F, null));
         }
 
 // limit velocity to grounding plane (can either use cross projection or just clipping)
@@ -130,7 +94,7 @@ public class NCC {
             var numtriggers = nb.GetTriggerCount();
             for (int i = 0; i < numtriggers; i++) {
                 var thit = ahits[i];
-                re.Trigger(in m, new Clip(thit.point, thit.normal, thit.collider, thit.distance));
+                re.Trigger(in m, new NClip(thit.point, thit.normal, thit.collider, thit.distance));
             }
 
             if (i0 < 0) {
@@ -160,8 +124,8 @@ public class NCC {
 
 // convert all clips into ground clips (normals are subspace of ground plane)
             for (int i = old_len; i < hull.GetCount(); i++) {
-                Clip c = hull.Get(i);
-                if (snap && nb.Ground.valid && !DetermineTraceStability(c.normal, nb.Ground.normal)) {
+                NClip c = hull.Get(i);
+                if (snap && nb.Ground.valid && !DetermineTraceStability(m.stableangle, c.normal, nb.Ground.normal)) {
                     c.normal = c.normal - Vector3.Project(c.normal, nb.Ground.normal);
                     c.normal.Normalize();
                     hull.Set(i, c);
@@ -195,8 +159,6 @@ public class NCC {
         Vector3 up   = -gdir;
 
 // clip vector along all blocking planes until tr is either zero or we've bounced twice
-// this is just an instantaneous slide that gathers ground information to be later used
-// when our actual velocity vector will be used
         while(numbumps++ < 2 && tr > 0) {
             int n = Physics.BoxCastNonAlloc(spos, m.ext, gdir, ahits, m.rot, tr, m.mask,
                 QueryTriggerInteraction.Ignore
@@ -211,9 +173,11 @@ public class NCC {
                 tr = tr - (Vector3.Distance(np, spos) + hit.distance);
                 spos = np;
 
-                if(!DetermineTraceStability(hit.normal, up)) {
+                if(!DetermineTraceStability(m.stableangle, hit.normal, up)) {
                     gdir = gdir - Vector3.Project(gdir, hit.normal);
                     gdir.Normalize();
+
+// remember nearby blocking surface geometry
                     hull.AppendHit(hit);
                 }else {
 
@@ -233,8 +197,8 @@ public class NCC {
         nb.SetGround(new NCCGround(false, Vector3.zero, Vector3.zero, 0f, null));
     }
 
-    private static bool DetermineTraceStability(Vector3 normal, Vector3 up) {
-        return Vector3.Angle(normal, up) < 65F;
+    private static bool DetermineTraceStability(float angle, Vector3 normal, Vector3 up) {
+        return Vector3.Angle(normal, up) < angle;
     }
 
 // stepping subroutine of HullTrace
@@ -247,7 +211,7 @@ public class NCC {
         Vector3 up         = m.rot * new Vector3(0, 1, 0);
 
 // stable normals are ignored
-        if(DetermineTraceStability(sn, up))
+        if(DetermineTraceStability(m.stableangle, sn, up))
             return false;
 
 // trace upward for ceilings
@@ -279,11 +243,11 @@ public class NCC {
         spos = Traceback(spos, -up, ahits[i0].distance, ahits[i0].normal);
         float hdot = Vector3.Dot(spos - m.pos, up);
 
-        if(hdot < min_h || !DetermineTraceStability(ahits[i0].normal, up)) {
+        if(hdot < min_h || !DetermineTraceStability(m.stableangle, ahits[i0].normal, up)) {
             return false;
         }
         
-// trace forwards for blocking plane for step
+// trace forwards to blocking plane for step
         n = Physics.BoxCastNonAlloc(m.pos + up * hdot, m.ext, -sn, ahits, m.rot, aux_d + 2F * m_offs, m.mask,
             QueryTriggerInteraction.Ignore
         );
@@ -292,7 +256,7 @@ public class NCC {
         i0 = NCCFilter.FindClosest(n, ahits);
 
         if(i0 >= 0) {
-            if(!DetermineTraceStability(ahits[i0].normal, up)) {
+            if(!DetermineTraceStability(m.stableangle, ahits[i0].normal, up)) {
                 return false;
             }
         }else {
@@ -345,21 +309,12 @@ public class NCC {
 
             if(pen) {
                 if(c.isTrigger) {
-                    re.Trigger(in m, new Clip(ClosestPoint(m.pos, m.self, c), sep, c, 0F));
+                    re.Trigger(in m, new NClip(ClosestPoint(m.pos, m.self, c), sep, c, 0F));
                 }else {
                     m.pos += sep * dist;
                     hull.AppendOverlap(ClosestPoint(m.pos, m.self, c), sep, c, dist);
                 }
             }
-        }
-    }
-
-    public static void DrawRay(Vector3 p, Vector3 r, Color c) {
-        if(Application.isPlaying) {
-            Debug.DrawRay(p, r, c);
-        }else {
-            Gizmos.color = c;
-            Gizmos.DrawRay(p, r);
         }
     }
 }

@@ -10,7 +10,7 @@ public class NCCBuffer {
         m_tbuf = new RaycastHit[16];
         m_hbuf = new RaycastHit[16];
         m_cbuf = new Collider[8];
-        m_chull = new ClipHull(new List<Clip>());
+        m_chull = new ClipHull(new List<NClip>());
     }
 
 // NonAlloc() version
@@ -78,7 +78,7 @@ public class NCCBuffer {
     }
 
     public void AddTrigger(RaycastHit hit) {
-        Debug.Assert(hit.collider.isTrigger);
+// Debug.Assert(hit.collider.isTrigger);
         
         if(numtriggers < m_tbuf.Length) {
             m_tbuf[numtriggers++] = hit;

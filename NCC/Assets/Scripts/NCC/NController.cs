@@ -30,7 +30,7 @@ public class NController : MonoBehaviour, NCCRelay {
         float mv_mag = move.magnitude;
         m_forw = Vector3.ProjectOnPlane(move, Vector3.up);
         m_forw.Normalize();
-        m_forw *= 10F;
+        m_forw *= 5F;
 
         float up = Input.GetKey(KeyCode.Q) ? 1 : -1;
         up += Input.GetKey(KeyCode.E) ? -1 : 1;
@@ -50,11 +50,11 @@ public class NController : MonoBehaviour, NCCRelay {
         Vector3 scl = Vector3.Scale(box.size, transform.localScale); 
         Quaternion rot = box.transform.rotation;
 
-        NCCMove nmove = new NCCMove(pos, vel, scl, rot, box, mask, flags, Time.fixedDeltaTime);
+        NCCMove nmove = new NCCMove(pos, vel, scl, rot, box, mask, flags, Time.fixedDeltaTime, 0.6F, 45F);
         nmove = NCC.Move(nmove, nbuf, this);
         box.transform.position = nmove.pos;
     }
 
-    public void Clip(in NCCMove m, ClipType t, Clip c) {}
-    public void Trigger(in NCCMove m, Clip c) {}
+    public void Clip(in NCCMove m, ClipType t, NClip c) {}
+    public void Trigger(in NCCMove m, NClip c) {}
 }

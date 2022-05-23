@@ -7,14 +7,14 @@ public class ClipHull {
     private const float d_eps = 1e-5f;
 
 // all elements below the indexer 'total' are obstructive clips.
-    private List<Clip> clist;
+    private List<NClip> clist;
 
 // this integer is valuable as it gives an offset along the normals list
 // to skip already clipped normals. We don't want to continually clip against
 // old normals as it will corrupt our velocity vector.
     private int total;
 
-    public ClipHull(List<Clip> clist) {
+    public ClipHull(List<NClip> clist) {
         this.clist = clist;
         this.Clear();
     }
@@ -32,7 +32,7 @@ public class ClipHull {
         do {
             for(i = t;i < n;i++) {
                 x++;
-                Clip c = Get(i);
+                NClip c = Get(i);
 
                 if(!c.clipped && Vector3.Dot(v, c.normal) <= d_eps) {
                     c.clipped = true; 
@@ -49,33 +49,33 @@ public class ClipHull {
         return v.sqrMagnitude < v_eps ? Vector3.zero : v;
     }
 
-    public void Set(int i, Clip c) {
+    public void Set(int i, NClip c) {
         clist[i] = c;
     }
 
-    public Clip Get(int i) {
+    public NClip Get(int i) {
         return clist[i];
     }
 
     public void Draw(Vector3 pos, Color c) {
         int n = clist.Count;
         for(int i = 0;i < n;i++) {
-            NCC.DrawRay(pos, this.Get(i).normal, c);
+            Debug.DrawRay(pos, this.Get(i).normal, c);
         }
     }
 
 // insert raycasthit into clip list
     public void AppendHit(in RaycastHit hit) {
-        InsertClip(new Clip(hit.point, hit.normal, hit.collider, hit.distance));
+        InsertClip(new NClip(hit.point, hit.normal, hit.collider, hit.distance));
     }
 
     public void AppendHit(RaycastHit hit) {
-        InsertClip(new Clip(hit.point, hit.normal, hit.collider, hit.distance));
+        InsertClip(new NClip(hit.point, hit.normal, hit.collider, hit.distance));
     }
 
 // insert an overlap penetration into clip list
     public void AppendOverlap(Vector3 position, Vector3 normal, Collider collider, float d) {
-        InsertClip(new Clip(position, normal, collider, d));
+        InsertClip(new NClip(position, normal, collider, d));
     }
 
 // trims the fat (useless clips that were not discovered during a prior clipvector call)
@@ -91,7 +91,7 @@ public class ClipHull {
     }
 
 // secret method that handles insertion
-    private void InsertClip(Clip c) {
+    private void InsertClip(NClip c) {
 // additional operation to prevent semi-parallel planes from being
 // inserted into the system. It's O(n) but the working set is usually
 // small enough that it isn't a problem.
@@ -108,13 +108,13 @@ public class ClipHull {
         if(i1 == i2)
             return;
         else {
-            Clip c = this.Get(i1);
+            NClip c = this.Get(i1);
             Set(i1, this.Get(i2));
             Set(i2, c);
         }
     }
 
-    private void Add(Clip c) {
+    private void Add(NClip c) {
         clist.Add(c);
     }
 
