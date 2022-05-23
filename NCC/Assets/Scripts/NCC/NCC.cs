@@ -89,9 +89,10 @@ public class NCC {
         var box  = m.self as BoxCollider;
         var ahits = nb.AHits;
 
-        var snap = (m.flags & FLG_DOSNAP) != 0;
-        var step = (m.flags & FLG_DOSTEP) != 0;
         var grnd = (m.flags & FLG_DOGROUND) != 0;
+        var snap = (m.flags & FLG_DOSNAP)   != 0;
+        var step = (m.flags & FLG_DOSTEP)   != 0;
+        Vector3 initv = m.vel;
 
 // ground trace
         if(grnd) {
@@ -106,7 +107,7 @@ public class NCC {
                 m.vel *= v / m.vel.magnitude;
             }
         }
-
+        
 // heuristics
         int numbumps = 0;
         float tl = m.vel.magnitude * m.dt;
@@ -157,10 +158,9 @@ public class NCC {
             NCCFilter.ClipNearest(i0, n, hull, hits);
             hull.AppendHit(cl);
 
+// convert all clips into ground clips (normals are subspace of ground plane)
             for (int i = old_len; i < hull.GetCount(); i++) {
                 Clip c = hull.Get(i);
-
-// convert all clips into ground clips (normals are subspace of ground plane)
                 if (snap && nb.Ground.valid && !DetermineTraceStability(c.normal, nb.Ground.normal)) {
                     c.normal = c.normal - Vector3.Project(c.normal, nb.Ground.normal);
                     c.normal.Normalize();
@@ -171,8 +171,7 @@ public class NCC {
             }
 
             m.vel = hull.ClipVector(m.vel);
-            // m.vel += hull.Get(hull.GetCount() - 1).normal * bvel;
-            m.vel += cl.normal * bvel;
+            m.vel += hull.Get(hull.GetCount() - 1).normal * bvel;
             t_dir = m.vel;
         }
     }
@@ -215,6 +214,7 @@ public class NCC {
                 if(!DetermineTraceStability(hit.normal, up)) {
                     gdir = gdir - Vector3.Project(gdir, hit.normal);
                     gdir.Normalize();
+                    hull.AppendHit(hit);
                 }else {
 
 // only snap if provided by the args flags
