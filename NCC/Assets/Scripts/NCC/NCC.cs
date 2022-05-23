@@ -112,7 +112,7 @@ public class NCC {
 // this way we ensure we are m_offs units away from the surface while also not resulting in a protrusion into other nearby geometry
 // as the vector we have traced ensures a valid path we can sweep along without intersecting other nearby geometry.
             RaycastHit cl = hits[i0];
-            Vector3 np = Traceback(m.pos, t_dir, cl.distance, cl.point, cl.normal);
+            Vector3 np = Traceback(m.pos, t_dir, cl.distance, cl.normal);
             tl = tl - (Vector3.Distance(np, m.pos) + cl.distance);
             m.pos = np;
 
@@ -145,7 +145,7 @@ public class NCC {
 
 // used to push the primitive into the closest obstruction, as well as back out 'x' units provided
 // by m_offs
-    private static Vector3 Traceback(Vector3 pos, Vector3 tdir, float dist, Vector3 np, Vector3 ndir) {
+    private static Vector3 Traceback(Vector3 pos, Vector3 tdir, float dist, Vector3 ndir) {
         Vector3 opos = pos;
         pos = pos + tdir * dist;
         Vector3 ep = pos + ndir * m_offs;
@@ -156,7 +156,7 @@ public class NCC {
 
 // snapping subroutine of HullTrace
     private static void SnapTrace(ref NCCMove m, ClipHull hull, NCCBuffer nb, RaycastHit[] ahits, bool snap) {
-        float min_sdist = nb.LastGround.valid ? Mathf.Max(m.stepheight, 2e-2f) : Mathf.Max(m.stepheight / 2F, 2e-2f);
+        float min_sdist = nb.LastGround.valid ? Mathf.Max(m.stepheight, 2e-2f) : Mathf.Max(m.stepheight / 3F, 2e-2f);
         float tr = min_sdist + 2 * m_offs;
         int numbumps = 0;
         Vector3 spos = m.pos;
@@ -174,7 +174,7 @@ public class NCC {
 
             if(i0 >= 0) {
                 RaycastHit hit = ahits[i0];
-                Vector3 np = Traceback(spos, gdir, hit.distance, hit.point, hit.normal);
+                Vector3 np = Traceback(spos, gdir, hit.distance, hit.normal);
                 tr = tr - (Vector3.Distance(np, spos) + hit.distance);
                 spos = np;
 
@@ -227,7 +227,7 @@ public class NCC {
         int i0 = NCCFilter.FindClosest(n, ahits);
 
         if(i0 >= 0) {
-            spos = Traceback(spos, up, ahits[i0].distance, ahits[i0].point, ahits[i0].normal);
+            spos = Traceback(spos, up, ahits[i0].distance, ahits[i0].normal);
         }else {
             spos += up * height;
         }
@@ -244,7 +244,7 @@ public class NCC {
         if(i0 < 0)
             return false;
 
-        spos = Traceback(spos, -up, ahits[i0].distance, ahits[i0].point, ahits[i0].normal);
+        spos = Traceback(spos, -up, ahits[i0].distance, ahits[i0].normal);
         float hdot = Vector3.Dot(spos - m.pos, up);
 
         if(hdot < min_h || !DetermineTraceStability(m.stableangle, ahits[i0].normal, up)) {
