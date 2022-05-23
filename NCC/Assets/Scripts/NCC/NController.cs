@@ -50,7 +50,7 @@ public class NController : MonoBehaviour, NCCRelay {
         Vector3 scl = Vector3.Scale(box.size, transform.localScale); 
         Quaternion rot = box.transform.rotation;
 
-        NCCMove nmove = new NCCMove(pos, vel, scl, rot, box, mask, flags, Time.fixedDeltaTime, 0.6F, 45F);
+        NCCMove nmove = new NCCMove(pos, vel, scl, rot, box, mask, flags, Time.fixedDeltaTime, 0.6F, 65F);
         nmove = NCC.Move(nmove, nbuf, this);
         box.transform.position = nmove.pos;
     }

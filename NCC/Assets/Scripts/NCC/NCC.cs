@@ -4,7 +4,8 @@ public class NCC {
     public const int FLG_DOSNAP   = 0x1; // don't snap if not desireable
     public const int FLG_DOSTEP   = 0x2; // don't step if not desireable
     public const int FLG_DOGROUND = 0x4; // skip ground check if not needed
-    public const int FLG_ALL = FLG_DOSNAP | FLG_DOSNAP | FLG_DOGROUND;
+    public const int FLG_PUSHBCK  = 0x8;
+    public const int FLG_ALL = FLG_DOSNAP | FLG_DOSNAP | FLG_DOGROUND | FLG_PUSHBCK;
 
     public const float DEF_STP_HEIGHT = 0.6F;
     public const float DEF_STBL_ANGLE = 45F;
@@ -23,9 +24,12 @@ public class NCC {
 
         var hits = nb.Hits;
         var cols = nb.Colliders;
+        var overlap = (m.flags & FLG_PUSHBCK) != 0;
 
 // resolve pushbacks
-        OverlapBox(ref m, cols, ref hull, re);
+        if(overlap) {
+            OverlapBox(ref m, cols, ref hull, re);
+        }
 
         Vector3 old_vel = m.vel;
         m.vel = hull.ClipVector(m.vel);
@@ -108,7 +112,7 @@ public class NCC {
 // this way we ensure we are m_offs units away from the surface while also not resulting in a protrusion into other nearby geometry
 // as the vector we have traced ensures a valid path we can sweep along without intersecting other nearby geometry.
             RaycastHit cl = hits[i0];
-            Vector3 np = Traceback(m.pos, t_dir, cl.distance, cl.normal);
+            Vector3 np = Traceback(m.pos, t_dir, cl.distance, cl.point, cl.normal);
             tl = tl - (Vector3.Distance(np, m.pos) + cl.distance);
             m.pos = np;
 
@@ -118,7 +122,6 @@ public class NCC {
 
 // traverse from [old_len, cur_count) to notify the relay of all newly discovered clips
             int old_len = hull.GetCount();
-
             NCCFilter.ClipNearest(i0, n, hull, hits);
             hull.AppendHit(cl);
 
@@ -142,11 +145,13 @@ public class NCC {
 
 // used to push the primitive into the closest obstruction, as well as back out 'x' units provided
 // by m_offs
-    private static Vector3 Traceback(Vector3 pos, Vector3 tdir, float dist, Vector3 ndir) {
+    private static Vector3 Traceback(Vector3 pos, Vector3 tdir, float dist, Vector3 np, Vector3 ndir) {
+        Vector3 opos = pos;
         pos = pos + tdir * dist;
-        Vector3 np = pos + ndir * m_offs;
-        pos = pos - tdir * Vector3.Dot(np - pos, ndir);
-        return pos;
+        Vector3 ep = pos + ndir * m_offs;
+        pos = pos - tdir * Vector3.Dot(ep - pos, ndir);
+// only move our position if our net sum is still forward
+        return Vector3.Dot(pos - opos, tdir) > 0 ? pos : opos;
     }
 
 // snapping subroutine of HullTrace
@@ -169,7 +174,7 @@ public class NCC {
 
             if(i0 >= 0) {
                 RaycastHit hit = ahits[i0];
-                Vector3 np = Traceback(spos, gdir, hit.distance, hit.normal);
+                Vector3 np = Traceback(spos, gdir, hit.distance, hit.point, hit.normal);
                 tr = tr - (Vector3.Distance(np, spos) + hit.distance);
                 spos = np;
 
@@ -222,7 +227,7 @@ public class NCC {
         int i0 = NCCFilter.FindClosest(n, ahits);
 
         if(i0 >= 0) {
-            spos = Traceback(spos, up, ahits[i0].distance, ahits[i0].normal);
+            spos = Traceback(spos, up, ahits[i0].distance, ahits[i0].point, ahits[i0].normal);
         }else {
             spos += up * height;
         }
@@ -239,7 +244,7 @@ public class NCC {
         if(i0 < 0)
             return false;
 
-        spos = Traceback(spos, -up, ahits[i0].distance, ahits[i0].normal);
+        spos = Traceback(spos, -up, ahits[i0].distance, ahits[i0].point, ahits[i0].normal);
         float hdot = Vector3.Dot(spos - m.pos, up);
 
         if(hdot < min_h || !DetermineTraceStability(m.stableangle, ahits[i0].normal, up)) {
