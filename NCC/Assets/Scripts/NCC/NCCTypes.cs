@@ -32,9 +32,7 @@ public struct NCCMove {
     }
 
 // transform ctor
-    public NCCMove(Transform t, Vector3 vel, int mask, int flags, float dt, float stepheight = NCC.DEF_STP_HEIGHT, float stableangle = NCC.DEF_STBL_ANGLE) {
-        var box = t.GetComponent<BoxCollider>();
-
+    public NCCMove(Transform t, BoxCollider box, Vector3 vel, int mask, int flags, float dt, float stepheight = NCC.DEF_STP_HEIGHT, float stableangle = NCC.DEF_STBL_ANGLE) {
         this.pos = t.position;
         this.rot = t.rotation;
         this.ext = Vector3.Scale(box.size, t.localScale) / 2F;

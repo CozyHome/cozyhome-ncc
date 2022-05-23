@@ -151,7 +151,7 @@ public class NCC {
 
 // snapping subroutine of HullTrace
     private static void SnapTrace(ref NCCMove m, ClipHull hull, NCCBuffer nb, RaycastHit[] ahits, bool snap) {
-        float min_sdist = nb.LastGround.valid ? 0.6F : 0.3F;
+        float min_sdist = nb.LastGround.valid ? Mathf.Max(m.stepheight, 2e-2f) : Mathf.Max(m.stepheight / 2F, 2e-2f);
         float tr = min_sdist + 2 * m_offs;
         int numbumps = 0;
         Vector3 spos = m.pos;
@@ -180,7 +180,6 @@ public class NCC {
 // remember nearby blocking surface geometry
                     hull.AppendHit(hit);
                 }else {
-
 // only snap if provided by the args flags
                     if(snap) {
                         m.pos = spos;
@@ -203,7 +202,7 @@ public class NCC {
 
 // stepping subroutine of HullTrace
     private static bool StepTrace(ref NCCMove m, RaycastHit[] ahits, Vector3 sn) {
-        const float height = 0.6F;
+        float height = Mathf.Max(m.stepheight, 2e-2f);
         const float aux_d = 2e-2f;
         const float min_h = 1e-2f; 
 

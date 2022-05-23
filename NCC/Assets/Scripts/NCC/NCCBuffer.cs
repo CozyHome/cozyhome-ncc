@@ -78,8 +78,6 @@ public class NCCBuffer {
     }
 
     public void AddTrigger(RaycastHit hit) {
-// Debug.Assert(hit.collider.isTrigger);
-        
         if(numtriggers < m_tbuf.Length) {
             m_tbuf[numtriggers++] = hit;
         }
